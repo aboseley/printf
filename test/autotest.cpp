@@ -10,6 +10,7 @@
 #include <getopt.h>
 #endif
 #include <assert.h>
+#include <cmath>
 
 #include "printf_config.h"
 #include "../src/printf/printf.h"
@@ -57,6 +58,9 @@
     bool f;
     bool e;
     bool g;
+    bool s;
+    double sequential_start = 0.0;
+    double sequential_delta = 1.0;
     bool left_justify;
     bool zero_pad;
     bool hash;
@@ -66,7 +70,7 @@
   };
 
 //  Valid short options
-  #define VALIDOPTS  "ixoufeglz#wp::ah"
+  #define VALIDOPTS  "ixoufegs::d::lz#wp::ah"
 
   #define MSG_USAGE "\n\
 Usage: " MAIN_TITLE " [OPTION/s]\n\
@@ -87,6 +91,8 @@ Errors are output to stderr\r\n\
    -w  test width specifier\n\
    -p <limit> test precision specifier, with an optional limit for %%f %%e %%g\n\
    -a  test all of the above, with a default precision limit of %i for %%f %%e %%g\n\
+   -s <start> test %%f sequential values \n\
+   -d <delta> delta for sequential test , where test_end = start + delta \n\
 \n\
    -h  show these options\n\
 \n\
@@ -118,6 +124,7 @@ Examples:\n\
   static void test_f(void);
   static void test_e(void);
   static void test_g(void);
+  static void test_s(void);
 
   float rand_float(float a, float b);
 
@@ -151,6 +158,9 @@ static bool parse_options(int argc, char *argv[])
   opts.f = false;
   opts.e = false;
   opts.g = false;
+  opts.s = false;
+  opts.sequential_start = 0.0;
+  opts.sequential_delta = 1.0;
   opts.left_justify = false;
   opts.zero_pad = false;
   opts.hash = false;
@@ -175,6 +185,14 @@ static bool parse_options(int argc, char *argv[])
       opts.e = true;
     else if(c == 'g')
       opts.g = true;
+    else if(c == 's') {
+        opts.s = true;
+        if(optarg) opts.sequential_start = atof(optarg);
+    }
+    else if(c == 'd'){
+        opts.s = true;
+        if(optarg) opts.sequential_delta = atof(optarg);
+    }
     else if(c == 'l')
       opts.left_justify = true;
     else if(c == 'z')
@@ -235,6 +253,8 @@ static void run_tests(void)
       test_e();
     if(opts.g)
       test_g();
+    if(opts.s)
+      test_s();
   };
 }
 
@@ -602,6 +622,32 @@ static void test_g(void)
   fprintf(dst, "libc:     \"%s\"\n", std_buf);
   fprintf(dst, "our lib:  \"%s\"\n", tst_buf);
 }
+
+static void test_s(void)
+{
+    printf("\nsequential test, start = %f, delta = %f, precision = %d\n", opts.sequential_start, opts.sequential_delta, opts.prec_max);
+    char fmt_buf[BUF_SIZE];
+    char std_buf[BUF_SIZE];
+    char tst_buf[BUF_SIZE];
+
+    strcpy(fmt_buf, "%0.");
+    sprintf(&fmt_buf[strlen(fmt_buf)], "%i", opts.prec_max);
+    strcat(fmt_buf, "f");
+
+    double const from = opts.sequential_start;
+    double const to = opts.sequential_start + 1.0;
+
+    for (double value = from ; value < to; value = nextafter(value, to+1)){
+        sprintf(std_buf, fmt_buf, value);
+        sprintf_(tst_buf, fmt_buf, value);
+        if(strcmp(std_buf,tst_buf)){
+            printf("\nfmt = \"%s\" value = %.18f\n", fmt_buf, value);
+            printf("libc:     \"%s\"\n", std_buf);
+            printf( "our lib:  \"%s\"\n", tst_buf);
+        }
+    }
+}
+
 
 
 float rand_float(float a, float b)
