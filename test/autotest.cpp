@@ -10,6 +10,7 @@
 #include <getopt.h>
 #endif
 #include <assert.h>
+#include <cmath>
 
 #include "printf_config.h"
 #include "../src/printf/printf.h"
@@ -57,6 +58,7 @@
     bool f;
     bool e;
     bool g;
+    bool d;
     bool left_justify;
     bool zero_pad;
     bool hash;
@@ -66,7 +68,7 @@
   };
 
 //  Valid short options
-  #define VALIDOPTS  "ixoufeglz#wp::ah"
+  #define VALIDOPTS  "ixoufegdlz#wp::ah"
 
   #define MSG_USAGE "\n\
 Usage: " MAIN_TITLE " [OPTION/s]\n\
@@ -81,6 +83,7 @@ Errors are output to stderr\r\n\
    -f  test %%f\n\
    -e  test %%e\n\
    -g  test %%g (float falling back to exp)\n\
+   -d  test %%f in degrees +/- 180 \n\
    -l  test left justification\r\n\
    -z  test zero padding\n\
    -#  test prepending base 0 0x\n\
@@ -118,6 +121,7 @@ Examples:\n\
   static void test_f(void);
   static void test_e(void);
   static void test_g(void);
+  static void test_d(void);
 
   float rand_float(float a, float b);
 
@@ -151,6 +155,7 @@ static bool parse_options(int argc, char *argv[])
   opts.f = false;
   opts.e = false;
   opts.g = false;
+  opts.d = false;
   opts.left_justify = false;
   opts.zero_pad = false;
   opts.hash = false;
@@ -175,6 +180,8 @@ static bool parse_options(int argc, char *argv[])
       opts.e = true;
     else if(c == 'g')
       opts.g = true;
+    else if(c == 'd')
+        opts.d = true;
     else if(c == 'l')
       opts.left_justify = true;
     else if(c == 'z')
@@ -198,6 +205,7 @@ static bool parse_options(int argc, char *argv[])
       opts.f = true;
       opts.e = true;
       opts.g = true;
+      opts.d = true;
       opts.left_justify = true;
       opts.zero_pad = true;
       opts.hash = true;
@@ -235,6 +243,8 @@ static void run_tests(void)
       test_e();
     if(opts.g)
       test_g();
+    if(opts.d)
+      test_d();
   };
 }
 
@@ -602,6 +612,29 @@ static void test_g(void)
   fprintf(dst, "libc:     \"%s\"\n", std_buf);
   fprintf(dst, "our lib:  \"%s\"\n", tst_buf);
 }
+
+static void test_d(void)
+{
+    char fmt_buf[BUF_SIZE];
+    char std_buf[BUF_SIZE];
+    char tst_buf[BUF_SIZE];
+
+    strcpy(fmt_buf, "%0.8f");
+
+    double const from = -180.0;
+    double const to = 180.0;
+
+    for (double value = from ; value < to; value = nextafter(value, to+1)){
+        sprintf(std_buf, fmt_buf, value);
+        sprintf_(tst_buf, fmt_buf, value);
+        if(strcmp(std_buf,tst_buf)){
+            printf("\nfmt = \"%s\" value = %.18f\n", fmt_buf, value);
+            printf("libc:     \"%s\"\n", std_buf);
+            printf( "our lib:  \"%s\"\n", tst_buf);
+        }
+    }
+}
+
 
 
 float rand_float(float a, float b)
